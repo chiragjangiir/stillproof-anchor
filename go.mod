@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/stellar/go-stellar-sdk v0.8.0
-	github.com/stillproof-labs/stillproof v0.0.0
+	github.com/stillproof-labs/stillproof v0.1.0
 	modernc.org/sqlite v1.61.1
 )
 
@@ -27,5 +27,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
-
-replace github.com/stillproof-labs/stillproof => ../stillproof
