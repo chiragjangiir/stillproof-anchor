@@ -185,3 +185,30 @@ func TestSubmitRejectsBadClaimsAndIsIdempotent(t *testing.T) {
 		t.Fatalf("unknown id: %d", code)
 	}
 }
+
+func TestAProvedBatchGivesV1ReceiptsWithTheProof(t *testing.T) {
+	srv, b, c := setup(t)
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	file := []byte("photo")
+	_, out := post(t, srv, signedClaim(t, key, file))
+	if err := b.Tick(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	var r receipt.Receipt
+	_, body := get(t, srv, out["id"])
+	if err := json.Unmarshal(body, &r); err != nil || r.V != 0 || r.Anchor.Proof != nil {
+		t.Fatalf("before the proof: %s %v", body, err)
+	}
+	proof := `{"format":"externalize/bundle/v1"}`
+	if err := b.Store.Proved(context.Background(), 1, []byte(proof)); err != nil {
+		t.Fatal(err)
+	}
+	_, body = get(t, srv, out["id"])
+	r = receipt.Receipt{}
+	if err := json.Unmarshal(body, &r); err != nil || r.V != 1 || string(r.Anchor.Proof) != proof {
+		t.Fatalf("after the proof: %s %v", body, err)
+	}
+	if v := receipt.Verify(context.Background(), file, r, c); !v.OK() {
+		t.Fatalf("%s: %s", v.Failed, v.Reason)
+	}
+}
