@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite" // database/sql driver "sqlite"
 )
 
-// ErrNotFound means no claim has that id.
+// ErrNotFound means no claim or key has that id.
 var ErrNotFound = errors.New("not found")
 
 // Store is the service's state.
@@ -63,15 +63,24 @@ func Open(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("store: %w", err)
 	}
+	if err := migrateV1(context.Background(), db); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("store: %w", err)
+	}
 	return &Store{db: db}, nil
 }
 
 // Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
-// Add records a signed claim. Adding the same claim again is a no-op.
+// Add records a signed claim, indexed by its file hash when it parses.
+// Adding the same claim again is a no-op.
 func (s *Store) Add(ctx context.Context, id string, leaf, signed []byte) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO claims (id, leaf, signed) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING`, id, leaf, signed)
+	var sha sql.NullString
+	if h, err := fileHash(signed); err == nil {
+		sha = sql.NullString{String: h, Valid: true}
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT INTO claims (id, leaf, signed, sha256) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`, id, leaf, signed, sha)
 	return err
 }
 
