@@ -22,6 +22,7 @@ type fakeExnode struct {
 	claimed string       // if set, the bundle claims this transaction instead
 	network string       // if set, the bundle's network
 	noTxset bool
+	format  string // if set, the bundle's format
 	hits    atomic.Int32
 	last    atomic.Value // *http.Request
 }
@@ -35,7 +36,7 @@ func (f *fakeExnode) serve(t *testing.T) string {
 			http.Error(w, `{"error":"checkpoint not published"}`, int(s))
 			return
 		}
-		tx, network, txset := r.URL.Query().Get("tx"), passphrase, `"transactions":"T",`
+		tx, network, txset, format := r.URL.Query().Get("tx"), passphrase, `"transactions":"T",`, receipt.BundleFormat
 		if f.claimed != "" {
 			tx = f.claimed
 		}
@@ -45,8 +46,11 @@ func (f *fakeExnode) serve(t *testing.T) string {
 		if f.noTxset {
 			txset = ""
 		}
-		fmt.Fprintf(w, `{"format":"externalize/bundle/v1","network":%q,"ledger":"L","scp":"S","results":"R",%s"claims":[{"kind":"transaction","tx_hash":%q}]}`,
-			network, txset, tx)
+		if f.format != "" {
+			format = f.format
+		}
+		fmt.Fprintf(w, `{"format":%q,"network":%q,"ledger":"L","scp":"S","next_scp":"NS","next_transactions":"NT","results":"R",%s"claims":[{"kind":"transaction","tx_hash":%q}]}`,
+			format, network, txset, tx)
 	}))
 	t.Cleanup(srv.Close)
 	return srv.URL
@@ -144,6 +148,7 @@ func TestProverRejectsWrongBundles(t *testing.T) {
 		"another transaction": {claimed: "tx2"},
 		"another network":     {network: "Public Global Stellar Network ; September 2015"},
 		"no transaction set":  {noTxset: true},
+		"v1":                  {format: "externalize/bundle/v1"},
 	} {
 		b := anchoredBatch(t)
 		if err := prover(b, ex.serve(t)).Tick(context.Background()); err != nil {

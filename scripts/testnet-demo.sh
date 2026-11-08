@@ -3,9 +3,10 @@
 # service, sign a file with a development key, submit it, wait for the
 # receipt, and verify the file against it through Horizon.
 #
-# With exnode and externalize on PATH it also runs exnode, waits for the
-# validator proof (SPEC.md §8.2: the ledger must reach a history archive,
-# about 5 to 10 minutes), verifies against the validators, and checks that
+# With exnode and externalize (v0.3.0 or later, for externalize/bundle/v2) on
+# PATH it also runs exnode, waits for the validator proof (SPEC.md §8.2: the
+# ledger and the next one must reach a history archive, about 5 to 10
+# minutes), verifies against the validators, and checks that
 # tampered receipts fail. DEMO_OUT=DIR keeps the photo and the v1 receipt.
 #
 # Run from this repository with ../stillproof (or $STILLPROOF_DIR) checked

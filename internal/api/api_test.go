@@ -199,7 +199,7 @@ func TestAProvedBatchGivesV1ReceiptsWithTheProof(t *testing.T) {
 	if err := json.Unmarshal(body, &r); err != nil || r.V != 0 || r.Anchor.Proof != nil {
 		t.Fatalf("before the proof: %s %v", body, err)
 	}
-	proof := `{"format":"externalize/bundle/v1"}`
+	proof := `{"format":"externalize/bundle/v2"}`
 	if err := b.Store.Proved(context.Background(), 1, []byte(proof)); err != nil {
 		t.Fatal(err)
 	}

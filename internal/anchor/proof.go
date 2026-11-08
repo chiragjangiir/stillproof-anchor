@@ -23,13 +23,14 @@ import (
 // transaction set is usually well under 1 MB.
 const maxBundle = 16 << 20
 
-// Prover fetches each anchored batch's Externalize bundle, with its
-// transaction set, from an exnode (SPEC.md §8.2). A bundle exists only once
-// the anchor's ledger is in a history archive, so it retries until then.
+// Prover fetches each anchored batch's Externalize bundle
+// (externalize/bundle/v2), with its transaction set, from an exnode
+// (SPEC.md §8.2). A v2 bundle needs the next ledger too, so it exists only
+// once both are in a history archive; it retries until then.
 //
-// It asks for GET /v1/ledgers/{ledger}/bundle?tx=…&txset=true: exnode's
-// /v1/transactions/{hash}/bundle has no txset option, and needs an RPC
-// that still has the transaction.
+// It asks for GET /v1/ledgers/{ledger}/bundle?tx=…&txset=true, which needs
+// only the archive: /v1/transactions/{hash}/bundle also needs an RPC that
+// still has the transaction.
 type Prover struct {
 	Store      *store.Store
 	Exnode     string // base URL, e.g. http://127.0.0.1:8081
@@ -113,9 +114,9 @@ func (p *Prover) prove(ctx context.Context, b store.Batch) ([]byte, error) {
 	if err := json.Unmarshal(body, &head); err != nil {
 		return nil, fmt.Errorf("exnode: ledger %d: %w", b.Ledger, err)
 	}
-	if head.Format != "externalize/bundle/v1" || head.Network != p.Passphrase || head.Transactions == "" ||
+	if head.Format != receipt.BundleFormat || head.Network != p.Passphrase || head.Transactions == "" ||
 		len(head.Claims) != 1 || head.Claims[0].Kind != "transaction" || head.Claims[0].TxHash != b.Tx {
-		return nil, fmt.Errorf("exnode: ledger %d: not a bundle for transaction %s with its transaction set", b.Ledger, b.Tx)
+		return nil, fmt.Errorf("exnode: ledger %d: not a %s bundle for transaction %s with its transaction set", b.Ledger, receipt.BundleFormat, b.Tx)
 	}
 	if p.Check == nil {
 		return body, nil
@@ -135,7 +136,8 @@ func (p *Prover) prove(ctx context.Context, b store.Batch) ([]byte, error) {
 }
 
 // fetch returns the exnode's bundle for b, or an error wrapping errNotYet
-// if the ledger isn't archived yet or the exnode asks to come back later.
+// if the ledger or its successor isn't archived yet (404, or 503 for the
+// last ledger of a checkpoint), or the exnode asks to come back later.
 func (p *Prover) fetch(ctx context.Context, b store.Batch) ([]byte, error) {
 	u := strings.TrimRight(p.Exnode, "/") + "/v1/ledgers/" + strconv.FormatUint(uint64(b.Ledger), 10) +
 		"/bundle?" + url.Values{"tx": {b.Tx}, "txset": {"true"}}.Encode()
