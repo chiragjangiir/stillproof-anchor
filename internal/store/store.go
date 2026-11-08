@@ -27,6 +27,7 @@ type Batch struct {
 	Anchored bool
 	Ledger   uint32
 	ClosedAt time.Time
+	Proof    []byte // Externalize bundle for Tx (SPEC.md §8.2), nil until fetched
 }
 
 const schema = `
@@ -59,7 +60,7 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1) // SQLite has one writer; serialising avoids SQLITE_BUSY.
-	if _, err := db.ExecContext(context.Background(), schema); err != nil {
+	if err := createSchema(context.Background(), db); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("store: %w", err)
 	}
@@ -77,7 +78,7 @@ func (s *Store) Add(ctx context.Context, id string, leaf, signed []byte) error {
 
 // Pending returns the open batch, if any: built but not yet anchored.
 func (s *Store) Pending(ctx context.Context) (*Batch, error) {
-	return s.batch(ctx, `SELECT id, root, size, tx, account, anchored, ledger, closed_at FROM batches WHERE anchored = 0 ORDER BY id LIMIT 1`)
+	return s.batch(ctx, `SELECT id, root, size, tx, account, anchored, ledger, closed_at, proof FROM batches WHERE anchored = 0 ORDER BY id LIMIT 1`)
 }
 
 // Cut moves up to max unbatched claims, oldest first, into a new batch
@@ -152,7 +153,7 @@ func (s *Store) Lookup(ctx context.Context, id string) (signed []byte, b *Batch,
 	if err != nil || !batch.Valid {
 		return signed, nil, 0, err
 	}
-	b, err = s.batch(ctx, `SELECT id, root, size, tx, account, anchored, ledger, closed_at FROM batches WHERE id = ?`, batch.Int64)
+	b, err = s.batch(ctx, `SELECT id, root, size, tx, account, anchored, ledger, closed_at, proof FROM batches WHERE id = ?`, batch.Int64)
 	return signed, b, int(idx.Int64), err
 }
 
@@ -177,7 +178,7 @@ func (s *Store) Leaves(ctx context.Context, batch int64) ([][]byte, error) {
 func (s *Store) batch(ctx context.Context, q string, args ...any) (*Batch, error) {
 	var b Batch
 	var closed int64
-	err := s.db.QueryRowContext(ctx, q, args...).Scan(&b.ID, &b.Root, &b.Size, &b.Tx, &b.Account, &b.Anchored, &b.Ledger, &closed)
+	err := s.db.QueryRowContext(ctx, q, args...).Scan(&b.ID, &b.Root, &b.Size, &b.Tx, &b.Account, &b.Anchored, &b.Ledger, &closed, &b.Proof)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
