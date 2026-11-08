@@ -34,26 +34,49 @@ FAILED at file: the file's SHA-256 is not the one in the claim
 ## Run it
 
 ```sh
-go install github.com/stillproof-labs/stillproof-anchor/cmd/stillproof-anchor@latest
-stillproof-anchor keygen                  # prints SECRET ADDRESS; fund ADDRESS
-ANCHOR_SECRET=S... stillproof-anchor -network testnet -listen 127.0.0.1:8080
+docker run --rm --entrypoint /stillproof-anchor ghcr.io/stillproof-labs/stillproof-anchor keygen   # prints SECRET ADDRESS
+docker run -d -p 8080:8080 -v stillproof:/data -e ANCHOR_SECRET=S... \
+  ghcr.io/stillproof-labs/stillproof-anchor -network mainnet -app-id TEAMID.io.github.stillprooflabs.app
 ```
+
+Or `go install github.com/stillproof-labs/stillproof-anchor/cmd/stillproof-anchor@latest`.
+The image listens on `:8080` and keeps its SQLite database in the `/data`
+volume. It runs as a non-root user.
+
+**The anchor account** is the one `ANCHOR_SECRET` signs for. It must exist
+and stay funded: on mainnet, fund it with at least the 1 XLM minimum balance
+plus fees. Each batch is one transaction charged the network's base fee,
+normally 100 stroops (0.00001 XLM). Under surge pricing the service bids up
+to 10,000 stroops (0.001 XLM) per transaction, and never more. The account
+needs no trustlines or other setup. Use it for nothing else, so its sequence
+number stays the service's own.
+
+At startup the service checks that the RPC serves the network named by
+`-network` and exits if it doesn't.
 
 | Flag | Default |
 |---|---|
 | `-network` | `testnet` (or `mainnet`) |
-| `-rpc` | The network's public Stellar RPC |
-| `-db` | `stillproof.db` (SQLite) |
+| `-rpc` | The network's public Stellar RPC: `soroban-testnet.stellar.org`, or `mainnet.sorobanrpc.com` (a third-party provider; set your own for production) |
+| `-app-id` | `$ANCHOR_APP_ID`. Accepted App Attest ids, comma-separated `TEAMID.bundle` |
+| `-db` | `stillproof.db` (SQLite); `/data/stillproof.db` in the image |
 | `-interval` | `5s` between batches |
-| `-listen` | `127.0.0.1:8080` |
+| `-listen` | `127.0.0.1:8080`; `:8080` in the image |
 
 ## API
+
+Every route allows any origin (CORS), so browser verifiers can call it.
 
 | Route | Result |
 |---|---|
 | `POST /v1/claims` | Body: a signed claim (`text/plain`). Returns `202 {"id"}`, or `400` if it is malformed or the signature is invalid. Resubmitting returns the same id |
 | `GET /v1/receipts/{id}` | `200` with the receipt, or `202 {"status": "pending"}` until it is anchored |
+| `GET /v1/receipts?sha256=<hex>` | `200 {"receipts": [...]}`: every anchored receipt for that file, oldest first. `202 {"status": "pending"}` if all are pending, `404` if unknown |
+| `POST /v1/keys` | Body: `{"key": "<hex>", "attestation": {...}}`, up to 64 KB. Returns `204`, or `400` with the reason if the attestation doesn't show the key is in hardware. Registering again is a no-op |
 | `GET /healthz` | `200` |
+
+Once a key is registered, its receipts are `v` 1 and carry its attestation
+(SPEC.md §8.1).
 
 ## How anchoring stays correct
 
