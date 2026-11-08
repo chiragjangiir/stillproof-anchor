@@ -33,22 +33,23 @@ FAILED at file: the file's SHA-256 is not the one in the claim
 
 **Validator proofs (SPEC.md §8.2).** Run with `-exnode URL` (or
 `EXNODE_URL`; empty disables), the service fetches each anchored batch's
-Externalize bundle, with the transaction set, from
+Externalize bundle (`externalize/bundle/v2`), with the transaction set, from
 `GET /v1/ledgers/{ledger}/bundle?tx=…&txset=true`, retrying until the ledger
-is in a history archive. If `externalize` is on `PATH` it checks the bundle
-first. Receipts then carry it as `anchor.proof`, with `v` 1. Run on testnet
-on 2026-11-08 with exnode v0.2.0 and externalize v0.2.0
-(`scripts/testnet-demo.sh`): tx `d772b310…5493`, ledger 5615318, proof
-in the receipt under 4 minutes after the ledger closed, and
+and the next one are in a history archive. If `externalize` (v0.3.0 or
+later) is on `PATH` it checks the bundle first. Receipts then carry it as
+`anchor.proof`, with `v` 1. Proofs in older formats are dropped on start and
+fetched again. Run on testnet on 2026-11-08 with exnode `feat/bundle-v2` and
+externalize built from main (0.3.0) (`scripts/testnet-demo.sh`): tx
+`df3b02ea…6715`, ledger 5629669, and
 
 ```console
 VERIFIED
-  existed no later than 2026-11-08T01:10:32Z (ledger 5615318, testnet)
+  existed no later than 2026-11-08T21:06:27Z (ledger 5629669, testnet)
   anchor checked against the validators' signatures
 ==> a receipt naming another anchor account must fail
-FAILED at anchor: validator proof: the bundle's transaction set has no transaction d772b310… from that account
+FAILED at anchor: validator proof: the bundle's transaction set has no transaction df3b02ea… from that account
 ==> a proof with an edited ledger header must fail
-FAILED at anchor: validator proof: rejected: ledger 5615318: header hash does not match header contents
+FAILED at anchor: validator proof: rejected: ledger 5629669: header hash does not match header contents
 ```
 
 ## Run it
