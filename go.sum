@@ -54,8 +54,8 @@ github.com/stellar/go-stellar-sdk v0.8.0 h1:PU0iM2deEly7qs60BGnm2L+lE3WtrvED3WT/
 github.com/stellar/go-stellar-sdk v0.8.0/go.mod h1:TE/oIrVngAujvcalNBggneqRLI3wSlUZb2pWYyqU3QA=
 github.com/stellar/go-xdr v0.0.0-20260806060815-dc590f17552a h1:40YIhQusSioBKDW5Tr+YdjoXphcVeu7eXUS2ibMQBTs=
 github.com/stellar/go-xdr v0.0.0-20260806060815-dc590f17552a/go.mod h1:If+U9Z1W5xU97VrOgJandQT+2dN7/iOpkCrxBJEyF80=
-github.com/stillproof-labs/stillproof v0.1.0 h1:RJ8GhZ1TdFPUPhujPRlWzKLSFZ1+oicyS9c77Xd53xg=
-github.com/stillproof-labs/stillproof v0.1.0/go.mod h1:DqGHxiEwqswHlAEM4OPGfqSDpUQi3nKPi+r+87VZARU=
+github.com/stillproof-labs/stillproof v0.1.1-0.20261107231500-8ce004c742a6 h1:qAAkdNN3+OfPwLtZwAGBR/1H/6nhts4YCANQGvDMm3o=
+github.com/stillproof-labs/stillproof v0.1.1-0.20261107231500-8ce004c742a6/go.mod h1:DqGHxiEwqswHlAEM4OPGfqSDpUQi3nKPi+r+87VZARU=
 github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=
 github.com/stretchr/objx v0.5.2/go.mod h1:FRsXN1f5AsAjCGJKqEizvkpNtU+EGNCLh3NxZ/8L+MA=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
