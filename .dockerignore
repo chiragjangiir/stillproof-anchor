@@ -1,0 +1,7 @@
+.git
+*.db
+*.db-*
+/stillproof-anchor
+/stillproof-anchor.exe
+go.work
+go.work.sum
