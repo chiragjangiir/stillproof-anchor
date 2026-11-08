@@ -10,17 +10,27 @@ import (
 // batches, added to databases created before it.
 const proofColumn = `ALTER TABLE batches ADD COLUMN proof BLOB`
 
-// createSchema creates the tables and adds the columns later versions need.
+// dropOldProofs clears proofs in any format but externalize/bundle/v2, so
+// they are fetched again: v1 bundles don't certify the whole ledger header.
+const dropOldProofs = `UPDATE batches SET proof = NULL WHERE proof IS NOT NULL AND
+  (CASE WHEN json_valid(CAST(proof AS TEXT)) THEN json_extract(CAST(proof AS TEXT), '$.format') END) IS NOT 'externalize/bundle/v2'`
+
+// createSchema creates the tables, adds the columns later versions need and
+// drops proofs in older formats.
 func createSchema(ctx context.Context, db *sql.DB) error {
 	if _, err := db.ExecContext(ctx, schema); err != nil {
 		return err
 	}
 	var n int
-	err := db.QueryRowContext(ctx, `SELECT count(*) FROM pragma_table_info('batches') WHERE name = 'proof'`).Scan(&n)
-	if err != nil || n > 0 {
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM pragma_table_info('batches') WHERE name = 'proof'`).Scan(&n); err != nil {
 		return err
 	}
-	_, err = db.ExecContext(ctx, proofColumn)
+	if n == 0 {
+		if _, err := db.ExecContext(ctx, proofColumn); err != nil {
+			return err
+		}
+	}
+	_, err := db.ExecContext(ctx, dropOldProofs)
 	return err
 }
 

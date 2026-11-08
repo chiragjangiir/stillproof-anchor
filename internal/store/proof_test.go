@@ -87,3 +87,55 @@ func TestProofLifecycle(t *testing.T) {
 		t.Fatalf("still unproved: %+v", u)
 	}
 }
+
+func TestOpenDropsProofsInOlderFormats(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.db")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	proofs := map[string]bool{ // proof: kept
+		`{"format":"externalize/bundle/v2","network":"N"}`: true,
+		`{"format":"externalize/bundle/v1","network":"N"}`: false,
+		`{"network":"N"}`: false,
+		`not json`:        false,
+	}
+	ids := map[int64]string{}
+	for p := range proofs {
+		id := string(rune('a' + len(ids)))
+		if err := s.Add(ctx, id, make([]byte, 32), []byte(id)); err != nil {
+			t.Fatal(err)
+		}
+		b, err := s.Cut(ctx, 1, func([][]byte) []byte { return make([]byte, 32) })
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Anchored(ctx, b.ID, "tx", "G", 7, time.Unix(1, 0)); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.Proved(ctx, b.ID, []byte(p)); err != nil {
+			t.Fatal(err)
+		}
+		ids[b.ID] = p
+	}
+	_ = s.Close()
+
+	if s, err = Open(path); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = s.Close() }()
+	u, err := s.Unproved(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropped := map[string]bool{}
+	for _, b := range u {
+		dropped[ids[b.ID]] = true
+	}
+	for p, kept := range proofs {
+		if dropped[p] == kept {
+			t.Errorf("%s: kept %v, want %v", p, !dropped[p], kept)
+		}
+	}
+}
