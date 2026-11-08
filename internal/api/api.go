@@ -94,10 +94,14 @@ func (s *Server) receipt(w http.ResponseWriter, r *http.Request) {
 	for _, h := range merkle.Proof(hs, index) {
 		proof = append(proof, hex.EncodeToString(h[:]))
 	}
-	writeJSON(w, http.StatusOK, receipt.Receipt{
+	rc := receipt.Receipt{
 		Claim: string(signed), Index: index, Size: batch.Size, Proof: proof, Root: hex.EncodeToString(batch.Root),
 		Anchor: receipt.Anchor{Network: s.Network, Account: batch.Account, Tx: batch.Tx, Ledger: batch.Ledger, ClosedAt: batch.ClosedAt},
-	})
+	}
+	if batch.Proof != nil {
+		rc.V, rc.Anchor.Proof = 1, batch.Proof // SPEC.md §8.2
+	}
+	writeJSON(w, http.StatusOK, rc)
 }
 
 // cors lets browser verifiers and apps on other origins call the API.

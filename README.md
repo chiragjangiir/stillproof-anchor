@@ -31,6 +31,26 @@ VERIFIED
 FAILED at file: the file's SHA-256 is not the one in the claim
 ```
 
+**Validator proofs (SPEC.md §8.2).** Run with `-exnode URL` (or
+`EXNODE_URL`; empty disables), the service fetches each anchored batch's
+Externalize bundle, with the transaction set, from
+`GET /v1/ledgers/{ledger}/bundle?tx=…&txset=true`, retrying until the ledger
+is in a history archive. If `externalize` is on `PATH` it checks the bundle
+first. Receipts then carry it as `anchor.proof`, with `v` 1. Run on testnet
+on 2026-11-08 with exnode v0.2.0 and externalize v0.2.0
+(`scripts/testnet-demo.sh`): tx `d772b310…5493`, ledger 5615318, proof
+in the receipt under 4 minutes after the ledger closed, and
+
+```console
+VERIFIED
+  existed no later than 2026-11-08T01:10:32Z (ledger 5615318, testnet)
+  anchor checked against the validators' signatures
+==> a receipt naming another anchor account must fail
+FAILED at anchor: validator proof: the bundle's transaction set has no transaction d772b310… from that account
+==> a proof with an edited ledger header must fail
+FAILED at anchor: validator proof: rejected: ledger 5615318: header hash does not match header contents
+```
+
 ## Run it
 
 ```sh
