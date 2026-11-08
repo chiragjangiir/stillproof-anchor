@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -43,6 +44,7 @@ func run() error {
 	net := flag.String("network", "testnet", "testnet or mainnet")
 	rpcURL := flag.String("rpc", "", "Stellar RPC (default: the network's public endpoint)")
 	interval := flag.Duration("interval", 5*time.Second, "how often to cut a batch")
+	appIDs := flag.String("app-id", os.Getenv("ANCHOR_APP_ID"), "accepted App Attest ids, comma-separated TEAMID.bundle (env ANCHOR_APP_ID)")
 	flag.Parse()
 
 	n, ok := anchor.Networks[*net]
@@ -66,13 +68,21 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	chain := &anchor.Stellar{Key: key, Passphrase: n.Passphrase, RPC: rpcclient.NewClient(*rpcURL, nil), Validity: time.Minute}
+	rpc := rpcclient.NewClient(*rpcURL, nil)
+	info, err := rpc.GetNetwork(ctx)
+	if err != nil {
+		return fmt.Errorf("rpc %s: %w", *rpcURL, err)
+	}
+	if info.Passphrase != n.Passphrase {
+		return fmt.Errorf("rpc %s serves %q, not %s", *rpcURL, info.Passphrase, *net)
+	}
+	chain := &anchor.Stellar{Key: key, Passphrase: n.Passphrase, RPC: rpc, Validity: time.Minute}
 	b := &anchor.Batcher{Store: st, Chain: chain, MaxBatch: 100_000, Expiry: 90 * time.Second, Poll: time.Second, Log: log}
 	go b.Run(ctx, *interval)
 
 	srv := &http.Server{
 		Addr:              *listen,
-		Handler:           (&api.Server{Store: st, Network: *net, Log: log}).Handler(),
+		Handler:           (&api.Server{Store: st, Network: *net, Log: log, AppIDs: splitList(*appIDs)}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
@@ -83,9 +93,19 @@ func run() error {
 		defer cancel()
 		_ = srv.Shutdown(shutdown)
 	}()
-	log.Info("serving", "addr", *listen, "network", *net, "account", key.Address())
+	log.Info("serving", "addr", *listen, "network", *net, "rpc", *rpcURL, "account", key.Address(), "app_ids", *appIDs)
 	if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil
+}
+
+func splitList(s string) []string {
+	var out []string
+	for f := range strings.SplitSeq(s, ",") {
+		if f = strings.TrimSpace(f); f != "" {
+			out = append(out, f)
+		}
+	}
+	return out
 }
