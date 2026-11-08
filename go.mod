@@ -4,7 +4,7 @@ go 1.26.0
 
 require (
 	github.com/stellar/go-stellar-sdk v0.8.0
-	github.com/stillproof-labs/stillproof v0.1.1-0.20261108050207-fb226f7456ee
+	github.com/stillproof-labs/stillproof v0.1.1-0.20261108222509-27471ae8eaf6
 	modernc.org/sqlite v1.61.1
 )
 

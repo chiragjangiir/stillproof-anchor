@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/clients/rpcclient"
 	"github.com/stellar/go-stellar-sdk/keypair"
+	"github.com/stillproof-labs/stillproof/receipt"
 
 	"github.com/stillproof-labs/stillproof-anchor/internal/anchor"
 	"github.com/stillproof-labs/stillproof-anchor/internal/api"
@@ -45,6 +47,7 @@ func run() error {
 	rpcURL := flag.String("rpc", "", "Stellar RPC (default: the network's public endpoint)")
 	interval := flag.Duration("interval", 5*time.Second, "how often to cut a batch")
 	appIDs := flag.String("app-id", os.Getenv("ANCHOR_APP_ID"), "accepted App Attest ids, comma-separated TEAMID.bundle (env ANCHOR_APP_ID)")
+	exnode := flag.String("exnode", os.Getenv("EXNODE_URL"), "exnode base URL for validator proofs (default $EXNODE_URL; empty disables)")
 	flag.Parse()
 
 	n, ok := anchor.Networks[*net]
@@ -79,6 +82,15 @@ func run() error {
 	chain := &anchor.Stellar{Key: key, Passphrase: n.Passphrase, RPC: rpc, Validity: time.Minute}
 	b := &anchor.Batcher{Store: st, Chain: chain, MaxBatch: 100_000, Expiry: 90 * time.Second, Poll: time.Second, Log: log}
 	go b.Run(ctx, *interval)
+	if *exnode != "" {
+		p := &anchor.Prover{Store: st, Exnode: *exnode, Network: *net, Passphrase: n.Passphrase, Log: log}
+		check := "none: externalize not on PATH"
+		if _, err := exec.LookPath("externalize"); err == nil {
+			p.Check, check = receipt.Externalize{}, "externalize"
+		}
+		log.Info("validator proofs", "exnode", *exnode, "check", check)
+		go p.Run(ctx, 30*time.Second)
+	}
 
 	srv := &http.Server{
 		Addr:              *listen,

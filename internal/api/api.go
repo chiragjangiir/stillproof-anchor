@@ -162,6 +162,9 @@ func (s *Server) build(ctx context.Context, id string) (*receipt.Receipt, error)
 	if rc.Attestation != nil {
 		rc.V = 1
 	}
+	if batch.Proof != nil {
+		rc.V, rc.Anchor.Proof = 1, batch.Proof // SPEC.md §8.2
+	}
 	return rc, nil
 }
 
