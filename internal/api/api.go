@@ -57,7 +57,11 @@ func (s *Server) Handler() http.Handler {
 func (s *Server) submit(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxClaim))
 	if err != nil {
-		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "claim too large"})
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "claim too large"})
+			return
+		}
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "body: " + err.Error()})
 		return
 	}
 	signed, err := claim.Parse(body)

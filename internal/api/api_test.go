@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -212,3 +213,32 @@ func TestAProvedBatchGivesV1ReceiptsWithTheProof(t *testing.T) {
 		t.Fatalf("%s: %s", v.Failed, v.Reason)
 	}
 }
+
+type errReader struct{ err error }
+
+func (e errReader) Read(p []byte) (n int, err error) {
+	return 0, e.err
+}
+
+func TestSubmitRejectsBodyReadErrorWithBadRequest(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	s := &Server{Store: st, Network: "testnet", Log: log}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/claims", errReader{err: errors.New("connection reset")})
+	rec := httptest.NewRecorder()
+	s.submit(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 for non-size read error, got %d (body: %s)", rec.Code, rec.Body.String())
+	}
+	var out map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out["error"] != "body: connection reset" {
+		t.Fatalf("expected error message 'body: connection reset', got: %s", rec.Body.String())
+	}
+}
+
